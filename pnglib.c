@@ -26,7 +26,6 @@ pngID pngOpenFile(char *fileName, char *mode){
     FILE *fp = fopen(fileName, mode);
     void *ptr = NULL;
     if(fp == NULL) return -1;
-    printf("%p", fp);
     fflush(stdout);
     pngFile pf = malloc(sizeof(struct pngFile_st));
     pf->fp = fp;
@@ -52,12 +51,12 @@ bool pngVerifyType(int pf){
     }
     pngFile p = IDTable[pf];
     char c;
-    char magicBytes[8] = {
+    unsigned char magicBytes[8] = {
         0x89, 0x50, 0x4e, 0x47,
         0xd, 0xa, 0x1a, 0xa
     };
     for(int i=0; i<8; i++){
-        c = fgetc(p->fp);
+        c = (unsigned char) fgetc(p->fp);
         if(c != magicBytes[i])
             return 0;
     }
@@ -65,29 +64,30 @@ bool pngVerifyType(int pf){
 }
 
 static bool _pngEndChunk(pngChunk pc){
-    char endBytes[4] = {0x49, 0x45, 0x4e, 0x44};
-    int endBytesInt=0;
+    unsigned char endBytes[4] = {0x49, 0x45, 0x4e, 0x44};
+    unsigned int endBytesInt=0;
     for(int i=0; i<4; i++){
         endBytesInt += endBytes[i] << ((3-i) * 8);
     }
     return endBytesInt == pc->type;
 }
 
-static int _readByte(FILE *fp){
-    int res = 0;
+static unsigned int _readByte(FILE *fp){
+    unsigned int res = 0;
     unsigned char byte;
     for(int i=0; i<4; i++){
-        byte = fgetc(fp);
+        byte = (unsigned char) fgetc(fp);
         res += byte << ((3-i)*8);
     }
     return res;
 }
 
-static char* _readData(FILE *fp, int lenght){
-    char *res = malloc(lenght * sizeof(unsigned char));
+static unsigned char* _readData(FILE *fp, int lenght){
+    unsigned char *res = malloc(lenght * sizeof(unsigned char));
     for(int i=0; i<lenght; i++){
-            res[i] = fgetc(fp);
+            res[i] = (unsigned  char) fgetc(fp);
     }
+    return res;
 }
 
 void pngPrintChunk(pngChunk pc, FILE *output){
@@ -101,13 +101,14 @@ void pngPrintChunk(pngChunk pc, FILE *output){
     fprintf(output, "CRC: %x\n", pc->CRC);
 }
 
-pngChunk *pngReadChunks(int file, int *size){
+pngFileChunk pngReadChunks(int file){
     pngFile p = IDTable[file];
     rewind(p->fp);
     if( !pngVerifyType(file) )return NULL;
 
     int maxc=3, lastc=0;
-    pngChunk *res = malloc(maxc * sizeof(pngChunk));
+    pngChunk *chunks = malloc(maxc * sizeof(pngChunk));
+    pngFileChunk res = malloc(sizeof(struct pngFileChunk_st));
     pngChunk pc;
     char byte;
     do{
@@ -121,16 +122,25 @@ pngChunk *pngReadChunks(int file, int *size){
         pc->data = _readData(p->fp, pc->length);
         pc->CRC = _readByte(p->fp);
         
-    
-
         if(lastc >= maxc){
             maxc += 3;
-            res = realloc(res, maxc * sizeof(pngChunk));
+            chunks = realloc(res, maxc * sizeof(pngChunk));
         }
-        res[lastc++] = pc;
+        chunks[lastc++] = pc;
     }while( !_pngEndChunk(pc) );
-    *size = lastc;
+    res->n = lastc;
+    res->chunks = chunks;
     return res;
 }
 
-
+pngChunk pngGetIDATChunk(pngFileChunk pc){
+    int n = pc->n;
+    int id=0;
+    char name[4] = {'T', 'A', 'D', 'I'};
+    for(int i=0; i<4; i++) id += name[i];
+    
+    for(int i=0; i<n; i++){
+        if(pc->chunks[i]->type == id)
+            return pc->chunks[i];
+    }
+}
