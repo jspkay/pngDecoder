@@ -11,7 +11,7 @@ h:
 	gcc -g -c help.c -o help.o
 
 assemble:
-	gcc -g main.o pnglib.o help.o -o exe
+	gcc -g main.o pnglib.o -o exe
 
 clean:
 	rm *.o

@@ -20,7 +20,7 @@ void pngInitialize(){
 
 pngID pngOpenFile(char *fileName, char *mode){
     if(lastPngFileID >= maxPngFiles){
-        lastPngFileID *= 2;
+        lastPngFileID += 2;
         IDTable = realloc(IDTable, lastPngFileID*sizeof(pngFile));
     }
     FILE *fp = fopen(fileName, mode);
@@ -33,7 +33,6 @@ pngID pngOpenFile(char *fileName, char *mode){
     IDTable[lastPngFileID] = pf;
     return lastPngFileID++;
 }
-
 bool pngCloseFile(int pf){
     pngFile p = IDTable[pf];
     if(p == NULL) return false;
@@ -44,13 +43,13 @@ bool pngCloseFile(int pf){
     lastPngFileID--;
     return true;
 }
-
 bool pngVerifyType(int pf){
     if(pf < 0){
         return 0;
     }
     pngFile p = IDTable[pf];
-    char c;
+    rewind(p->fp);
+    unsigned char c;
     unsigned char magicBytes[8] = {
         0x89, 0x50, 0x4e, 0x47,
         0xd, 0xa, 0x1a, 0xa
@@ -71,7 +70,6 @@ static bool _pngEndChunk(pngChunk pc){
     }
     return endBytesInt == pc->type;
 }
-
 static unsigned int _readByte(FILE *fp){
     unsigned int res = 0;
     unsigned char byte;
@@ -81,7 +79,6 @@ static unsigned int _readByte(FILE *fp){
     }
     return res;
 }
-
 static unsigned char* _readData(FILE *fp, int lenght){
     unsigned char *res = malloc(lenght * sizeof(unsigned char));
     for(int i=0; i<lenght; i++){
@@ -100,7 +97,6 @@ void pngPrintChunk(pngChunk pc, FILE *output){
     fprintf(output, "\n");
     fprintf(output, "CRC: %x\n", pc->CRC);
 }
-
 pngFileChunk pngReadChunks(int file){
     pngFile p = IDTable[file];
     rewind(p->fp);
@@ -124,7 +120,7 @@ pngFileChunk pngReadChunks(int file){
         
         if(lastc >= maxc){
             maxc += 3;
-            chunks = realloc(res, maxc * sizeof(pngChunk));
+            chunks = realloc(chunks, maxc * sizeof(pngChunk));
         }
         chunks[lastc++] = pc;
     }while( !_pngEndChunk(pc) );
@@ -133,14 +129,36 @@ pngFileChunk pngReadChunks(int file){
     return res;
 }
 
-pngChunk pngGetIDATChunk(pngFileChunk pc){
-    int n = pc->n;
-    int id=0;
-    char name[4] = {'T', 'A', 'D', 'I'};
-    for(int i=0; i<4; i++) id += name[i];
+pngChunk *pngGetIDATChunks(pngFileChunk pc, int *qty){
+    unsigned int id=0;
+    unsigned char name[4] = {'T', 'A', 'D', 'I'};
+    for(int i=0; i<4; i++) id += name[i] << (i*8);
     
-    for(int i=0; i<n; i++){
-        if(pc->chunks[i]->type == id)
-            return pc->chunks[i];
+    *qty = 0;
+    int max = 2;
+    pngChunk *res = malloc(max * sizeof(pngChunk));
+    
+    int n = pc->n;
+    int start;
+    for(start=0; pc->chunks[start]->type != id; start++); // Cerco il primo
+    for(int i=start; i<n && pc->chunks[i]->type == id; i++) { //inserisco gli altri
+        if(*qty >= max){ //se sbordo rialloco
+            max *= 2;
+            res = realloc(res, max * sizeof(pngChunk));
+        }
+        res[ (*qty)++ ] = pc->chunks[i];
     }
+    res = realloc(res, (*qty) * sizeof(pngChunk)); // rialloco: non spreco memoria inutilmente (*qty < max)
+    return res;
+}
+pngImage pngGetImage(pngFileChunk pc){
+    pngImage res = malloc(sizeof(struct pngImage_st));
+    pngChunk hdr = pc->chunks[0];
+    res->h = res->w = 0;
+    for(int i=0; i<4; i++){
+        res->w += hdr->data[i] << ((3-i) * 8);
+        res->h += hdr->data[i+4] << ((3-i) * 8);
+    }
+    
+    return res;
 }

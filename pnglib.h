@@ -1,6 +1,5 @@
-#ifndef PNGLIB
-#define PNGLIB
-#endif
+#ifndef PNGLIB_H
+#define PNGLIB_H
 
 #include <stdio.h>
 
@@ -21,10 +20,18 @@ typedef struct pngFileChunk_st {
 typedef int pngID;
 typedef struct pngFile_st *pngFile;
 
+typedef struct pngImage_st{
+    int h, w;
+} *pngImage;
+
 void pngInitialize();
 pngID pngOpenFile(char *fileName, char *mode);
 bool pngCloseFile(int pf);
 bool pngVerifyType(int pf);
 pngFileChunk pngReadChunks(int file);
 void pngPrintChunk(pngChunk pc, FILE *output);
-pngChunk pngGetIDATChunk(pngFileChunk pc);
+pngChunk *pngGetIDATChunks(pngFileChunk pc, int *qty);
+
+pngImage pngGetImage(pngFileChunk pc);
+
+#endif
