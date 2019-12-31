@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <malloc.h>
+#include <assert.h>
 #include "huffmanTree.h"
 
 typedef struct node_st *node;
@@ -55,16 +56,16 @@ char * __scanString(char *string, short int *s, short int *e){
     }
     return string;
 }
-huff_tree __getTreeStructure(short int *codes,const short int *lengths, int n){
-   huff_tree res = malloc(sizeof(struct node_st));
+huff_tree __generateTreeStructure(short int *codes, const short int *lengths, int n){
+    huff_tree res = malloc(sizeof(struct node_st));
     res->val = -1;
     res->l = NULL; res->r = NULL;
     node gn, pn; //gn mean generic node; pn mean present node
     
-    printf("\n\nCODICI:\n");
+    //printf("\n\nCODICI:\n");
     for(int i=0; i<n; i++){
         pn = res;
-        printf("%d -> ", i);
+        //printf("%d -> ", i);
         codes[i] <<= (16-lengths[i]);
         for(int j=0; j<lengths[i]; j++){
             int m = (codes[i] & (unsigned) 0x8000) >> (unsigned) 15;
@@ -85,11 +86,11 @@ huff_tree __getTreeStructure(short int *codes,const short int *lengths, int n){
                 }
                 pn = pn->l;
             }
-            printf("%d", (codes[i] & (unsigned) 0x8000) >> (unsigned) 15);
+            //printf("%d", (codes[i] & (unsigned) 0x8000) >> (unsigned) 15);
             codes[i] <<= 1;
         }
         pn->val = (short) i;
-        printf(" \n");
+        //printf(" \n");
     }
     
     return res;
@@ -171,10 +172,12 @@ huff_tree huff_generateTree(char *lengths, short int *l) {
      * end is the last value read from arguments
      */
     
+    assert(codeLengths != NULL);
+    
     for(int j=1; j<=lastLenBitIndex; j++) {
         int len = bl_count_ord[j] -> codeLength;
         short int nextCode = bl_count_ord[j]->startingCode;
-    
+        
         int i;
         for(i = 0; i<=end; i++) {
             if(codeLengths[i] == len)
@@ -182,7 +185,11 @@ huff_tree huff_generateTree(char *lengths, short int *l) {
         }
     }
     
-    return __getTreeStructure(dictionary, codeLengths, end+1);
+    huff_tree res = __generateTreeStructure(dictionary, codeLengths, end + 1);
+    free(dictionary);
+    free(bl_count_ord);
+    free(bl_count);
+    return res;
 }
 signed short int huff_getValue(huff_tree hf){
     return hf->val;
@@ -191,4 +198,13 @@ huff_tree huff_getNextNode(huff_tree hf, char value){
     if(hf->val != -1) return hf;
     else if(value == 0) return hf->l;
     return hf->r;
+}
+void huff_freeTree(huff_tree root){
+    if(root->val != -1){
+        free(root);
+        return;
+    }
+    
+    huff_freeTree(root->r);
+    huff_freeTree(root->l);
 }

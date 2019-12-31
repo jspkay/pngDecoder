@@ -10,6 +10,7 @@
 typedef struct node_st *huff_tree;
 
 huff_tree huff_generateTree(char *lengths, short int *l);
+signed short int huff_getValue(huff_tree hf);
 huff_tree huff_getNextNode(huff_tree t, char value);
 
 #endif //PNGLIB_BINARYTREE_H

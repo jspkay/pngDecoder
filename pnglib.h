@@ -20,8 +20,14 @@ typedef struct pngFileChunk_st {
 typedef int pngID;
 typedef struct pngFile_st *pngFile;
 
+typedef struct pixel_st{
+    int r, g, b, a;
+} pixel;
 typedef struct pngImage_st{
     int h, w;
+    unsigned char bitDepth, colorType, compressioneMethod,
+        filterMethod, interlaceMethod;
+    pixel *data;
 } *pngImage;
 
 void pngInitialize();

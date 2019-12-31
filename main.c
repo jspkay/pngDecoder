@@ -10,9 +10,10 @@ void png();
 void try();
 void stampaBit(unsigned char *ptr, int len);
 void huffman();
+void disegna();
 
-int main() {
-    huffman();
+int main(){
+    png();
 }
 
 void try(){
@@ -28,12 +29,12 @@ void try(){
 }
 void huffman(){
     short int lenghts[4] = {8, 9, 7, 8};
-    huff_generateTree("0-143 144-255 256-279 280-287", lenghts);
+    huff_tree hf = huff_generateTree("0-143 144-255 256-279 280-287", lenghts);
 }
 
 void png(){
     pngInitialize();
-    pngID p1 = pngOpenFile("/home/salvo/Immagini/vlcsnap-2017-09-09-15h01m19s799.png", "r"),
+    pngID p1 = pngOpenFile("/home/salvo/Documenti/img-white1x1Huffman.png", "r"),
         p2 = pngOpenFile("/home/salvo/Immagini/test/2.png", "r");
     printf("p1 is png: %c\np2 is png: %c\n",
         pngVerifyType(p1)?'t':'f',
@@ -43,7 +44,7 @@ void png(){
         printf("Error in reading image!\n");
         exit(0);
     }
-    pngFileChunk pc = pngReadChunks(p2);
+    pngFileChunk pc = pngReadChunks(p1);
     pngCloseFile(p1); pngCloseFile(p2);
     
     pngChunk *IDAT; int q;
@@ -61,48 +62,10 @@ void png(){
     printf("FLG --> FCHECK: %x, FDICT: %x, FLEVEL: %x\n", FLG->FCHECK, FLG->FDICT, FLG->FLEVEL);
     pngImage pi = pngGetImage(pc);
     printf("w: %d, h: %d\n", pi->w, pi->h);
-    zlib_deflate(data, 0);
+    
     //stampaBit(data->data, 10);
 }
 
-void stampaBit(unsigned char *ptr, int len){
-    unsigned char stringaBit[10000];
-    int k=0;
-    for(int i=0; i<len; i++) {
-        unsigned char byte = *ptr;
-        printf("%.1x: ", byte);
-        for(int j=0; j<8; j++) {
-            printf("%d ", byte % 2);
-            stringaBit[k++] = ((byte & (unsigned char)128) >> 7) + (unsigned char) '0';
-            byte >>= 1;
-        }
-        printf("\n");
-        ptr++;
-    }
-    
-    //CERCO IL COMPLEMENTO
-    stringaBit[k] = '\0';
-    unsigned char byte[9], car; byte[8] = '\0';
-    //strcpy(stringaBit, "000111000111000110001010011101000000011100011100011000101001110100000001110001110001100010100111010000");
-    unsigned char *c, *b;
-    int i,j;
-    for(i=0; i<k-7; i++){
-        c = stringaBit+i;
-        for(j=0; j<8; j++){
-            car = *(c+j);
-            if(car == '0') byte[j] = '1';
-            else byte[j] = '0';
-        }
-        b = c+8; int flag=1;
-        for(j=0; j<8 && flag; j++, b++){
-            if(*b != byte[j]) flag = 0;
-        }
-        if(flag){
-            char str[9]; str[8] = '\0';
-            for(j=0; j<8; j++)
-                str[j] = *(c++);
-            printf("TROVATO: %d(%d,%d), %s - %s\n", i, i/8, i%8, str, byte);
-        }
-    }
-    //printf("\n\n\n%s - %s", stringaBit, byte);
+void disegna(){
+
 }
