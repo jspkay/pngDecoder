@@ -5,6 +5,8 @@
 #include "zlib.h"
 #include "huffmanTree.h"
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 #define END_OF_BLOCK 0x100
 
@@ -36,8 +38,8 @@ void zlib_freeCM(zlib_data data){free(data);}
 void zlib_freeFLG(zlib_data data){free(data);}
 void zlib_freeDICTID(zlib_data data){free(data);}
 
-unsigned short int __nextByte(zlib_data *data, int *bc, int *i, int *zdc){
-    short int r;
+unsigned char __nextByte(zlib_data *data, int *bc, int *i, int *zdc){
+    unsigned char r;
     if(*bc == 0) { //Se sono all'inizio di un byte, prendo quello
         r = data[*zdc]->data[*i];
         (*i)++;
@@ -70,7 +72,7 @@ unsigned short int __nextBit(zlib_data *data, int *bc, int *i, int *zdc){
     }
     return (signed) r;
 }
-unsigned short int __getExtraBits(int extraBits, zlib_data *data, int*bc, int*i, int*zdc){
+unsigned short int __getExtraBitsML(int extraBits, zlib_data *data, int*bc, int*i, int*zdc){
     unsigned short int res=0x0;
     for(int j=0; j<extraBits; j++){
         res <<= (unsigned) 1;
@@ -78,6 +80,16 @@ unsigned short int __getExtraBits(int extraBits, zlib_data *data, int*bc, int*i,
     }
     return res;
 }
+unsigned short int __getExtraBitsLM(int extraBits, zlib_data *data, int*bc, int*i, int*zdc){
+    unsigned short int res=0x0;
+    for(int j=0; j<extraBits; j++){
+        unsigned short int v = __nextBit(data, bc, i, zdc);
+        v <<= (unsigned) j;
+        res += v;
+    }
+    return res;
+}
+
 int __twoPower(int exp){
     unsigned int res = 1;
     for(int i=0; i<exp; i++){
@@ -90,7 +102,7 @@ int __addOutputStreamByte(unsigned char byte, zlib_data res, int resAlloc, int p
         resAlloc += pace;
         res->data = realloc(res->data, resAlloc * sizeof(struct zlib_data_st));
     }
-    res->data[res->l++] = byte;
+    res->data[(res->l)++] = byte;
     return resAlloc;
 }
 unsigned short int __getHuffmanValue(huff_tree hf, zlib_data *data, int*bc, int*i, int*zdc){
@@ -106,6 +118,170 @@ unsigned short int __getHuffmanValue(huff_tree hf, zlib_data *data, int*bc, int*
     res = huff_getValue(node);
     return res;
 }
+huff_tree __readAndGenerateDynamicHuffmanTree(huff_tree *distanceHf, zlib_data *data, int*bc, int*i, int*zdc){
+    unsigned short int HLIT, HDIST, HCLEN;
+    
+    // Reading HLIT (5 bits)
+    HLIT = 0;
+    for(int j=0; j<5; j++){
+        unsigned int r = __nextBit(data, bc, i, zdc);
+        r <<= (unsigned) j;
+        HLIT += r;
+    }
+    
+    // Reading HDIST (5 bits)
+    HDIST = 0;
+    for(int j=0; j<5; j++){
+        unsigned int r = __nextBit(data, bc, i, zdc);
+        r <<= (unsigned) j;
+        HDIST += r;
+    }
+    
+    // Reading HCLEN (4 bits)
+    HCLEN = 0;
+    for(int j=0; j<4; j++){
+        unsigned int r = __nextBit(data, bc, i, zdc);
+        r <<= (unsigned) j;
+        HCLEN += r;
+    }
+    
+    unsigned short int huffmanCodeLenghts[19] = {0};
+    unsigned char readingOrder[19] = {16, 17, 18, 0, 8, 7, 9, 6, 10, 5,
+                                            11, 4, 12, 3, 13, 2, 14, 1, 15};
+    
+    unsigned short int j;
+    for(j=0; j<(HCLEN+4); j++){
+        unsigned short int k, value=0;
+        unsigned short r=0;
+        for(k=0; k<3; k++){
+            r = __nextBit(data, bc, i, zdc);
+            r <<= k;
+            value += r;
+        }
+        huffmanCodeLenghts[readingOrder[j]] = value;
+        ////printf("code length %2d: %d\n", readingOrder[j], value);
+    }
+    
+    // Generating huffman tree to read code lengths sequences
+    unsigned short int *lenghts = malloc(19 * sizeof(unsigned short int));
+    int lenghtsIndex = 0;
+    char codeAlphabet[1000] = {0};
+    char *string = codeAlphabet;
+    for(j=0; j<19; j++){
+        if(huffmanCodeLenghts[j] != 0) {
+            sprintf(string, "%d ", j);
+            string = codeAlphabet + strlen(codeAlphabet);
+            lenghts[lenghtsIndex++] = huffmanCodeLenghts[j];
+        }
+    }
+    codeAlphabet[strlen(codeAlphabet)-1] = '\0';
+    huff_tree hf = huff_generateTree((char*)codeAlphabet, lenghts);
+    assert(huff_validateTree(hf));
+    
+    // Reading actual huffman code for data
+    for(j=0; j < (unsigned short) strlen(codeAlphabet); j++) codeAlphabet[j] = 0;
+    string = codeAlphabet;
+    unsigned short int limit = HLIT + 257;
+    unsigned short int value, last = 0;
+    lenghts = realloc(lenghts, limit*sizeof(unsigned short int));
+    lenghtsIndex=0;
+    j=0;
+    while(j<limit){
+        value = __getHuffmanValue(hf, data, bc, i, zdc);
+        if(value <= 15){
+            if(value != 0) {
+                sprintf(string, "%u ", j);
+                string = codeAlphabet + strlen(codeAlphabet);
+                lenghts[lenghtsIndex++] = value;
+                ////printf("littlelen %d %d\n", j, value);
+            }
+            last = value;
+            j++;
+        }
+        else if(value == 16){
+            value = __getExtraBitsLM(2, data, bc, i, zdc);
+            value += 3;
+            j += value;
+            sprintf(string, "%d-%d ", j-value, j-1);
+            string = codeAlphabet + strlen(codeAlphabet);
+            lenghts[lenghtsIndex++] = last;
+            ////printf("littlelen repeat %d %d\n", last, value);
+        }
+        else if (value == 17){
+            value = __getExtraBitsLM(3, data, bc, i, zdc);
+            value += 3;
+            j += value;
+            ////printf("codes of length 0: %d\n", value);
+        }
+        else if (value == 18){
+            value = __getExtraBitsLM(7, data, bc, i, zdc);
+            value += 11;
+            j += value;
+            ////printf("codes of length 0: %d\n", value);
+        }
+    }
+    ////printf("%s\n", codeAlphabet);
+    
+    codeAlphabet[strlen(codeAlphabet)-1] = '\0';
+    huff_tree res = huff_generateTree((char*)codeAlphabet, lenghts);
+    assert(huff_validateTree(res));
+    
+    // Generating distance huffman code
+    //  -------------------------
+    
+    for(j=0; j < (unsigned short) strlen(codeAlphabet); j++) codeAlphabet[j] = 0;
+    string = codeAlphabet;
+    limit = HDIST+1;
+    lenghts = realloc(lenghts, limit*sizeof(unsigned short int));
+    lenghtsIndex=0;
+    j=0;
+    huff_tree hfd;
+    while(j<limit){
+        value = __getHuffmanValue(hf, data, bc, i, zdc);
+        if(value <= 15){
+            if(value != 0) {
+                sprintf(string, "%u ", j);
+                string = codeAlphabet + strlen(codeAlphabet);
+                lenghts[lenghtsIndex++] = value;
+                ////printf("dist %d %d\n", j, value);
+            }
+            last = value;
+            j++;
+        }
+        else if(value == 16){
+            value = __getExtraBitsLM(2, data, bc, i, zdc);
+            value += 3;
+            j += value;
+            sprintf(string, "%d-%d ", j-value, j-1);
+            string = codeAlphabet + strlen(codeAlphabet);
+            lenghts[lenghtsIndex++] = last;
+            ////printf("dist repeat %d %d\n", last, value);
+        }
+        else if (value == 17){
+            value = __getExtraBitsLM(3, data, bc, i, zdc);
+            value += 3;
+            j += value;
+            ////printf("dist codes of length 0: %d\n", value);
+        }
+        else if (value == 18){
+            value = __getExtraBitsLM(7, data, bc, i, zdc);
+            value += 11;
+            j += value;
+            ////printf("dist codes of length 0: %d\n", value);
+        }
+    }
+    ////printf("%s\n", codeAlphabet);
+    
+    codeAlphabet[strlen(codeAlphabet)-1] = '\0';
+    hfd = huff_generateTree((char*)codeAlphabet, lenghts);
+    assert(huff_validateTree(res));
+    
+    free(lenghts);
+    huff_freeTree(hf);
+    *distanceHf = hfd;
+    return res;
+}
+
 zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
     int *bc, *i, *zdc; // bc-> bit counter, i->byte counter, zdc->zlib_data counter
     bc = malloc(sizeof(short int)); *bc=0;
@@ -140,6 +316,7 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
             read <<= (unsigned) j;
             type += read;
         }
+        printf("---------------------BLOCK: %d %d\n", lastBlock, type);
         
         // Looking at the type
         if(type == 0b00){
@@ -157,7 +334,7 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
             // checking errors
             unsigned short int check = 0xFFFF;
             if(check-LEN != NLEN){
-                printf("Error in file.\n");
+                //printf("Error in file.\n");
                 exit(-1);
             }
             
@@ -166,37 +343,12 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
                 resAlloc = __addOutputStreamByte(byte, res, resAlloc, LEN);
             }
         }else{ // Huffman codes
-            huff_tree hf;
-            if(type == 0b10){  // dinamic huffman code
-                printf("To be implemented!\n");
-                exit(0);
-                
-                // Reading HLIT (5 bits)
-                unsigned short int value=0;
-                for(int j=0; j<5; j++){
-                    value <<= (unsigned) 1;
-                    value += __nextBit(data, bc, i, zdc);
-                }
-                printf("HLIT: %u\n", value);
-                
-                // Reading HDIST (5 bits)
-                value = 0;
-                for(int j=0; j<5; j++){
-                    value <<= (unsigned) 1;
-                    value += __nextBit(data, bc, i, zdc);
-                }
-                printf("HDIST: %u\n", value);
-                
-                // Reading HCLEN (4 bits)
-                value = 0;
-                for(int j=0; j<4; j++){
-                    value <<= (unsigned) 1;
-                    value += __nextBit(data, bc, i, zdc);
-                }
-                printf("HCLEN: %u\n", value);
-            }
-            else{ //type == 0b01
-                short int lenghts[4] = {8, 9, 7, 8};
+            huff_tree hf, dhf;
+            
+            if(type == 0b10) //dinamic huffman codes
+                hf = __readAndGenerateDynamicHuffmanTree(&dhf, data, bc, i, zdc);
+            else{ //type == 0b01 -> fixed huffman codes
+                unsigned short int lenghts[4] = {8, 9, 7, 8};
                 hf = huff_generateTree("0-143 144-255 256-279 280-287", lenghts);
             }
             
@@ -211,9 +363,10 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
                         res->data = realloc(res->data, resAlloc * sizeof(struct zlib_data_st));
                     }
                     res->data[(res->l)++] = read;
+                    //printf("res->l: %d --- literal: %d\n", res->l, read);
                 }
                 else if(read > 256){
-                    int length, distance;
+                    unsigned int length, distance;
                     switch(read){
                         default:
                         case 257 ... 264:
@@ -221,39 +374,44 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
                             break;
                         case 265 ... 268:
                             length = 11 + 2 * (read - 265);
-                            length += __getExtraBits(1, data, bc, i, zdc);
+                            length += __getExtraBitsLM(1, data, bc, i, zdc);
                             break;
                         case 269 ... 272:
                             length = 19 + 4 * (read - 269);
-                            length += __getExtraBits(2, data, bc, i, zdc);
+                            length += __getExtraBitsLM(2, data, bc, i, zdc);
                             break;
                         case 273 ... 280:
                             length = 35 + 8 * (read - 273);
-                            length += __getExtraBits(3, data, bc, i, zdc);
+                            length += __getExtraBitsLM(3, data, bc, i, zdc);
                             break;
                         case 281 ... 284:
                             length = 131 + 16 * (read - 281);
-                            length += __getExtraBits(4, data, bc, i, zdc);
+                            length += __getExtraBitsLM(4, data, bc, i, zdc);
                             break;
                         case 285:
                             length = 258;
                             break;
                     }
-                    distance = 0x0;
-                    for(int j=0; j<5; j++){
-                        unsigned short int r = __nextBit(data, bc, i, zdc);
-                        r <<= (unsigned) j;
-                        distance += r;
+                    
+                    distance = 0;
+                    if(type == 0b01) {
+                        for(int j = 0; j<5; j++) {
+                            unsigned short int r = __nextBit(data, bc, i, zdc);
+                            r <<= (unsigned) j;
+                            distance += r;
+                        }
+                    }else{ // type == 0b10
+                        distance = __getHuffmanValue(dhf, data, bc, i, zdc);
                     }
-                    int eb = 0;
-                    if(distance < 4) {
+                    
+                    int eb = (distance/2)-1;
+                    if(distance<4) {
                         distance += 1;
-                    }
-                    else{
+                    } else {
                         int last = 4; // last value of distance
-                        int r = 4, i1=1, i2=0; // r == read value as distance
-                        while(r < distance){
-                            if(i2 == 2){
+                        int r = 4, i1 = 1, i2 = 0; // r == read value as distance
+                        while(r<distance) {
+                            if(i2==2) {
                                 i1++;
                                 i2 = 0;
                             }
@@ -261,19 +419,21 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
                             i2++;
                             r++;
                         }
-                        distance = last+1;
+                        distance = last + 1;
                     }
-                    distance += __getExtraBits(eb, data, bc, i, zdc);
+                    distance += __getExtraBitsLM(eb, data, bc, i, zdc);
+    
+                    //printf("(BEFORE) res->l: %d --- L: %d, D: %d\n", res->l, length, distance);
+                    fflush(stdout);
                     
-                    
+                    assert(distance < res->l);
                     unsigned char *startingPoint = res->data + res->l - distance;
                     for(int j=0; j<length; j++){
                         unsigned char byte = *startingPoint;
                         resAlloc = __addOutputStreamByte(byte, res, resAlloc, length);
                         startingPoint++;
                     }
-                    
-                    printf("Data output: %d, L: %d, D: %d\n", res->l, length, distance);
+                    //printf("(AFTER) res->l: %d --- L: %d, D: %d\n", res->l, length, distance);
                     fflush(stdout);
                 }
                 
@@ -283,4 +443,8 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
     }while(!lastBlock);
     
     return res;
+}
+void zlib_freeData(zlib_data data){
+    free(data->data);
+    free(data);
 }

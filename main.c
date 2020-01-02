@@ -14,6 +14,7 @@ void disegna();
 
 int main(){
     png();
+    //huffman();
 }
 
 void try(){
@@ -28,14 +29,19 @@ void try(){
     printf("%d\n", i+1);
 }
 void huffman(){
+    /*
     short int lenghts[4] = {8, 9, 7, 8};
     huff_tree hf = huff_generateTree("0-143 144-255 256-279 280-287", lenghts);
+    */
+    short int lengths[5] = {1, 2, 0, 2};
+    huff_tree hf = huff_generateTree("1 2 3-17 18", lengths);
+
 }
 
 void png(){
     pngInitialize();
     pngID p1 = pngOpenFile("/home/salvo/Documenti/img-white1x1Huffman.png", "r"),
-        p2 = pngOpenFile("/home/salvo/Immagini/test/2.png", "r");
+        p2 = pngOpenFile("/home/salvo/Immagini/wallpaperHuffman.png", "r");
     printf("p1 is png: %c\np2 is png: %c\n",
         pngVerifyType(p1)?'t':'f',
         pngVerifyType(p2)?'t':'f');
@@ -44,14 +50,14 @@ void png(){
         printf("Error in reading image!\n");
         exit(0);
     }
-    pngFileChunk pc = pngReadChunks(p1);
+    pngFileChunk pc = pngReadChunks(p2);
     pngCloseFile(p1); pngCloseFile(p2);
     
     pngChunk *IDAT; int q;
     IDAT = pngGetIDATChunks(pc, &q);
-    for(int i=0; i<q; i++){
+    /*for(int i=0; i<q; i++){
         pngPrintChunk(IDAT[i], stdout);
-    }
+    }*/
     
     zlib_data data = malloc(sizeof(struct zlib_data_st));
     data->l = IDAT[0]->length;
@@ -61,7 +67,7 @@ void png(){
     printf("CMF --> CM: %x, CINFO: %x\n", CMF->CM, CMF->CINFO);
     printf("FLG --> FCHECK: %x, FDICT: %x, FLEVEL: %x\n", FLG->FCHECK, FLG->FDICT, FLG->FLEVEL);
     pngImage pi = pngGetImage(pc);
-    printf("w: %d, h: %d\n", pi->w, pi->h);
+    printf("\nw: %d, h: %d\n", pi->w, pi->h);
     
     //stampaBit(data->data, 10);
 }

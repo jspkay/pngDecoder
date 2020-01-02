@@ -27,7 +27,7 @@ typedef struct pngImage_st{
     int h, w;
     unsigned char bitDepth, colorType, compressioneMethod,
         filterMethod, interlaceMethod;
-    pixel *data;
+    pixel **image;
 } *pngImage;
 
 void pngInitialize();

@@ -142,6 +142,10 @@ void pngFreeChunks(pngFileChunk pfc){
     free(pfc);
 }
 
+unsigned char* pngFilter(unsigned char* rowImage, unsigned int n, int method){
+    return NULL;
+}
+
 pngChunk *pngGetIDATChunks(pngFileChunk pc, int *qty){
     unsigned int id=0;
     unsigned char name[4] = {'T', 'A', 'D', 'I'};
@@ -192,18 +196,25 @@ pngImage pngGetImage(pngFileChunk pc){
     int bytes;
     
     FILE *fp = fopen("../infgen/deflateOut", "w");
-    for(int i=0; i<compressedImage[0]->l; i++){
-        fprintf(fp, "%c", compressedImage[0]->data[i]);
+    for(int j=0; j<idatN; j++) {
+        for(int i = 0; i<compressedImage[j]->l; i++) {
+            fprintf(fp, "%c", compressedImage[j]->data[i]);
+        }
     }
     fclose(fp);
     
     zlib_data rawImage = zlib_deflate(compressedImage, idatN, &bytes);
+    free(compressedImage);
     
+    /*
     for(int i = 0; i<rawImage->l; i++) {
         printf("%d ", rawImage->data[i]);
-    }
+    }*/
     
     // filtering
+    unsigned char* filteredImage = pngFilter(rawImage->data, rawImage->l, res->filterMethod);
+    
+    zlib_freeData(rawImage);
     
     // composing pixels
     
