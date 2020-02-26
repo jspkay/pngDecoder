@@ -3,8 +3,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 //#define DEBUG
+#define BYTE_SIZE 8
 
 struct pngFile_st{
     FILE *fp;
@@ -142,8 +144,79 @@ void pngFreeChunks(pngFileChunk pfc){
     free(pfc);
 }
 
-unsigned char* pngFilter(unsigned char* rowImage, unsigned int n, int method){
-    return NULL;
+void __subFilteringColorsAlpha(pixel *line, const unsigned char*rawImage, int i, pngImage image);
+void __noneFilteringColorsAlpha(pixel *line, const unsigned char*rawImage, int i, pngImage image);
+void __upFilteringColorsAlpha(pixel *line, const pixel* upLine, const unsigned char*rawImage, int i, pngImage image);
+void __averageFilteringColorsAlpha(pixel* line, const pixel*upLine, const unsigned char*rawImage, int i, pngImage image);
+void __paethFilteringColorsAlpha();
+
+pixel** pngFilter(unsigned char* rawImage, pngImage image){
+    if(image->interlaceMethod!=0){
+        printf("Interlaced! Cannot process!");
+        exit(-1);
+    }
+    
+    pixel **res = malloc(image->h * sizeof(pixel));
+    for(int i=0; i<image->h; i++) res[i] = malloc(image->w * sizeof(struct pixel_st));
+    
+    // pixel[i][j] stands for i-th row j-th column
+    
+    void * type0, *type1, *type2, *type3, *type4;
+    int bpp;
+    
+    switch(image->colorType){
+        case 0: // grayScale (1 or 2 bytes)
+            bpp = 1;
+            if(image->bitDepth > 8) bpp++;
+            break;
+        case 2: // rgb triple
+            bpp = 1;
+            if(image->bitDepth>8) bpp++;
+            break;
+        case 3: //palette
+            bpp = 1;
+            break;
+        case 4: // grayscale + alpha sample
+            bpp = 2;
+            if(image->bitDepth > 8) bpp++;;
+            break;
+        case 6: // rgb triple + alpha sample
+            bpp = 4;
+            type0 = __noneFilteringColorsAlpha;
+            type1 = __subFilteringColorsAlpha;
+            type2 = __upFilteringColorsAlpha;
+            type3 = __averageFilteringColorsAlpha;
+            type4 = __paethFilteringColorsAlpha;
+            break;
+    }
+    
+    printf("line : type\n");
+    for(int i=0; i<image->h; i++){ // For each scanline (row)
+        // The first byte is the type
+        int type = rawImage[i * (image->w*bpp)];
+        printf("%4d : %2d \n", i, type);
+        fflush(stdout);
+    
+        switch(type){
+            case 0:
+                __noneFilteringColorsAlpha(res[i], rawImage, i, image);
+                break;
+            case 1:
+                __subFilteringColorsAlpha(res[i], rawImage, i, image);
+                break;
+            case 2:
+                __upFilteringColorsAlpha(res[i], i>1?res[i-1]:NULL, rawImage, i, image);
+                break;
+            case 3:
+                __averageFilteringColorsAlpha(res[i], i>1?res[i-1]:NULL, rawImage, i, image);
+                break;
+            case 4:
+                break;
+        }
+        
+    }
+    
+    return res;
 }
 
 pngChunk *pngGetIDATChunks(pngFileChunk pc, int *qty){
@@ -212,8 +285,7 @@ pngImage pngGetImage(pngFileChunk pc){
     }*/
     
     // filtering
-    unsigned char* filteredImage = pngFilter(rawImage->data, rawImage->l, res->filterMethod);
-    
+    res->image = pngFilter(rawImage->data, res);
     zlib_freeData(rawImage);
     
     // composing pixels

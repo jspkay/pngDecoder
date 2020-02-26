@@ -316,7 +316,7 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
             read <<= (unsigned) j;
             type += read;
         }
-        printf("---------------------BLOCK: %d %d\n", lastBlock, type);
+        //printf("---------------------BLOCK: %d %d\n", lastBlock, type);
         
         // Looking at the type
         if(type == 0b00){

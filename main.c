@@ -40,8 +40,8 @@ void huffman(){
 
 void png(){
     pngInitialize();
-    pngID p1 = pngOpenFile("/home/salvo/Documenti/img-white1x1Huffman.png", "r"),
-        p2 = pngOpenFile("/home/salvo/Immagini/wallpaperHuffman.png", "r");
+    pngID p1 = pngOpenFile("../img/img-white10x10.png", "r"),
+        p2 = pngOpenFile("../img/wallpaperHuffman.png", "r");
     printf("p1 is png: %c\np2 is png: %c\n",
         pngVerifyType(p1)?'t':'f',
         pngVerifyType(p2)?'t':'f');
@@ -50,7 +50,7 @@ void png(){
         printf("Error in reading image!\n");
         exit(0);
     }
-    pngFileChunk pc = pngReadChunks(p2);
+    pngFileChunk pc = pngReadChunks(p1);
     pngCloseFile(p1); pngCloseFile(p2);
     
     pngChunk *IDAT; int q;
