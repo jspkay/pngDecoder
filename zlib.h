@@ -22,6 +22,7 @@ typedef struct zlib_FLG_st{
 zlib_CMF zlib_getCM(zlib_data data);
 zlib_FLG zlib_getFLG(zlib_data data);
 zlib_data zlib_deflate(zlib_data *data, int n, int *newN); //data is the array of data, n is the length of this array, newN is the length of the array returned array
+zlib_data zlib_inflate(zlib_data *data, int n, int *newN);
 int zlib_getDICTID(zlib_data data);
 void zlib_freeData(zlib_data data);
 

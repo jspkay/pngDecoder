@@ -21,10 +21,10 @@ typedef int pngID;
 typedef struct pngFile_st *pngFile;
 
 typedef struct pixel_st{
-    int r, g, b, a;
+    unsigned short int r, g, b, a;
 } pixel;
 typedef struct pngImage_st{
-    int h, w;
+    unsigned int h, w;
     unsigned char bitDepth, colorType, compressioneMethod,
         filterMethod, interlaceMethod;
     pixel **image;

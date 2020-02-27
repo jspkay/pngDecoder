@@ -7,8 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <zlib.h>
 
 #define END_OF_BLOCK 0x100
+#define CHUNK 16384
 
 zlib_CMF zlib_getCM(zlib_data data){ //size of the array is always 3
     zlib_CMF res = malloc(sizeof(struct zlib_CMF_st));
@@ -282,7 +284,72 @@ huff_tree __readAndGenerateDynamicHuffmanTree(huff_tree *distanceHf, zlib_data *
     return res;
 }
 
+zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
+    int ret;
+    unsigned have;
+    z_stream strm;
+    unsigned char in[CHUNK];
+    unsigned char out[CHUNK];
+
+    zlib_data res = malloc(*newN * sizeof(struct zlib_data_st));
+    res->l = 0;
+    res->data = malloc(sizeof(byte));
+
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+    strm.avail_in = 0;
+    strm.next_in = Z_NULL;
+    ret = inflateInit(&strm);
+    if( ret != Z_OK) return NULL;
+
+    int cycles=0;
+    do {
+
+        if(data[cycles]->l<CHUNK) {
+            for (int i = 0; i<data[cycles]->l; i++) {
+                in[i] = data[cycles]->data[i];
+            }
+            strm.avail_in = data[cycles]->l;
+            strm.next_in = in;
+        }
+
+        do {
+            strm.avail_out = CHUNK;
+            strm.next_out = out;
+
+            ret = inflate(&strm, Z_NO_FLUSH);
+            assert(ret != Z_STREAM_ERROR);
+            switch (ret) {
+                case Z_NEED_DICT:
+                    ret = Z_DATA_ERROR;     /* and fall through */
+                case Z_DATA_ERROR:
+                case Z_MEM_ERROR:
+                    (void)inflateEnd(&strm);
+                    return NULL;
+            }
+
+            have = CHUNK - strm.avail_out;
+
+
+            if(have > 0){
+                int total = res->l + have + 1;
+                res->data = realloc(res->data, total * sizeof(byte));
+                for(int i=0; i<have; i++){
+                    res->data[res->l+i] = out[i];
+                }
+                res->l += have;
+            }
+
+        } while (strm.avail_out==0);
+    }while(ret != Z_STREAM_END);
+    ret = inflateEnd(&strm);
+
+    return res;
+}
+
 zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
+
     int *bc, *i, *zdc; // bc-> bit counter, i->byte counter, zdc->zlib_data counter
     bc = malloc(sizeof(short int)); *bc=0;
     i = malloc(sizeof(short int)); *i=0;
@@ -305,7 +372,8 @@ zlib_data zlib_deflate(zlib_data *data, int n, int *newN){
      * quel caso incrementare i.
      * Per cui ho implementato __nextBit
      */
-    
+
+
     unsigned short int lastBlock = 0; // BFINAL
     unsigned short int type; // BTYPE
     do{

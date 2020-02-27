@@ -148,7 +148,7 @@ void __subFilteringColorsAlpha(pixel *line, const unsigned char*rawImage, int i,
 void __noneFilteringColorsAlpha(pixel *line, const unsigned char*rawImage, int i, pngImage image);
 void __upFilteringColorsAlpha(pixel *line, const pixel* upLine, const unsigned char*rawImage, int i, pngImage image);
 void __averageFilteringColorsAlpha(pixel* line, const pixel*upLine, const unsigned char*rawImage, int i, pngImage image);
-void __paethFilteringColorsAlpha();
+void __paethFilteringColorsAlpha(pixel *line, const pixel*upline, const unsigned char*rawImage, int i, pngImage image);
 
 pixel** pngFilter(unsigned char* rawImage, pngImage image){
     if(image->interlaceMethod!=0){
@@ -157,11 +157,12 @@ pixel** pngFilter(unsigned char* rawImage, pngImage image){
     }
     
     pixel **res = malloc(image->h * sizeof(pixel));
-    for(int i=0; i<image->h; i++) res[i] = malloc(image->w * sizeof(struct pixel_st));
+    for(int i=0; i<image->h; i++)
+        res[i] = malloc(image->w * sizeof(struct pixel_st));
     
     // pixel[i][j] stands for i-th row j-th column
     
-    void * type0, *type1, *type2, *type3, *type4;
+    void *type0, *type1, *type2, *type3, *type4;
     int bpp;
     
     switch(image->colorType){
@@ -190,13 +191,14 @@ pixel** pngFilter(unsigned char* rawImage, pngImage image){
             break;
     }
     
-    printf("line : type\n");
+    //printf("line : type\n");
     for(int i=0; i<image->h; i++){ // For each scanline (row)
         // The first byte is the type
-        int type = rawImage[i * (image->w*bpp)];
-        printf("%4d : %2d \n", i, type);
+        int type = rawImage[i * (image->w*bpp+1) ];
+        printf("index: %d\n", i * ((image->w)*bpp +1));
+        printf("line:%4d --- type:%2d \n", i, type);
         fflush(stdout);
-    
+
         switch(type){
             case 0:
                 __noneFilteringColorsAlpha(res[i], rawImage, i, image);
@@ -205,12 +207,13 @@ pixel** pngFilter(unsigned char* rawImage, pngImage image){
                 __subFilteringColorsAlpha(res[i], rawImage, i, image);
                 break;
             case 2:
-                __upFilteringColorsAlpha(res[i], i>1?res[i-1]:NULL, rawImage, i, image);
+                __upFilteringColorsAlpha(res[i], i>0?res[i-1]:NULL, rawImage, i, image);
                 break;
             case 3:
-                __averageFilteringColorsAlpha(res[i], i>1?res[i-1]:NULL, rawImage, i, image);
+                __averageFilteringColorsAlpha(res[i], i>0?res[i-1]:NULL, rawImage, i, image);
                 break;
             case 4:
+                __paethFilteringColorsAlpha(res[i], i>0?res[i-1]:NULL, rawImage, i, image);
                 break;
         }
         
@@ -276,7 +279,8 @@ pngImage pngGetImage(pngFileChunk pc){
     }
     fclose(fp);
     
-    zlib_data rawImage = zlib_deflate(compressedImage, idatN, &bytes);
+    zlib_data rawImage = zlib_inflate(compressedImage, idatN, &bytes);
+    printf("-----------------------  %d\n", rawImage->data[1229]);
     free(compressedImage);
     
     /*
