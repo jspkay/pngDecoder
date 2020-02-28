@@ -10,7 +10,7 @@
 int main(int argc, char **argv){
     pngInitialize();
     pngID p1 = pngOpenFile("../img/img-white10x10.png", "r"),
-            p2 = pngOpenFile("../img/wallpaperHuffman.png", "r");
+            p2 = pngOpenFile("../img/wallpaper.png", "r");
     printf("p1 is png: %c\np2 is png: %c\n",
            pngVerifyType(p1)?'t':'f',
            pngVerifyType(p2)?'t':'f');

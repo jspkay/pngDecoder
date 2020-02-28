@@ -12,6 +12,6 @@ link_directories(${GTK3_LIBRARY_DIRS})
 
 add_definitions(${GTK3_CFALGS_OTHER})
 
-add_executable(exe main.c pnglib.c zlib.c zlib.h huffmanTree.c huffmanTree.h filteringAlgorithms.c UI.c UI.h)
+add_executable(exe main.c pnglib.c zlib.c zlib.h huffmanTree.c huffmanTree.h filteringAlgorithms.c UI.c UI.h filterAlgorithms.h)
 
-target_link_libraries(exe ${GTK3_LIBRARIES} ${ZLIB_LIBRARIES})
+target_link_libraries(exe ${GTK3_LIBRARIES} ${ZLIB_LIBRARIES} m)

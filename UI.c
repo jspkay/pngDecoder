@@ -5,7 +5,7 @@
 #include "UI.h"
 
 static pngImage image;
-static double wnd_w, wnd_h=500;
+static double wnd_w, wnd_h=1000;
 
 static void clear(cairo_t *cr, int xpoints, int ypoints){
     cairo_set_source_rgb(cr, .3, 0, .25);
@@ -37,7 +37,8 @@ static void drawImage(cairo_t  *cr){
             //a = 1;
             a = p.a / 255.0;
             cairo_set_source_rgba(cr, r,g,b,a);
-            cairo_rectangle(cr, x-0.05, y-.05, 1.1, 1.1);
+            //cairo_rectangle(cr, x-0.05, y-0.05, 1.1, 1.1);
+            cairo_rectangle(cr, x, y, 1, 1);
             cairo_fill(cr);
         }
     }

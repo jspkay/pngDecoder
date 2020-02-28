@@ -1,5 +1,6 @@
 #include "pnglib.h"
 #include "zlib.h"
+#include "filterAlgorithms.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,9 +87,9 @@ static unsigned int _readByte(FILE *fp){
     }
     return res;
 }
-static unsigned char* _readData(FILE *fp, unsigned int lenght){
-    unsigned char *res = malloc(lenght * sizeof(unsigned char));
-    for(int i=0; i<lenght; i++){
+static unsigned char* _readData(FILE *fp, unsigned int length){
+    unsigned char *res = malloc(length * sizeof(unsigned char));
+    for(int i=0; i<length; i++){
             res[i] = (unsigned  char) fgetc(fp);
     }
     return res;
@@ -144,12 +145,6 @@ void pngFreeChunks(pngFileChunk pfc){
     free(pfc);
 }
 
-void __subFilteringColorsAlpha(pixel *line, const unsigned char*rawImage, int i, pngImage image);
-void __noneFilteringColorsAlpha(pixel *line, const unsigned char*rawImage, int i, pngImage image);
-void __upFilteringColorsAlpha(pixel *line, const pixel* upLine, const unsigned char*rawImage, int i, pngImage image);
-void __averageFilteringColorsAlpha(pixel* line, const pixel*upLine, const unsigned char*rawImage, int i, pngImage image);
-void __paethFilteringColorsAlpha(pixel *line, const pixel*upline, const unsigned char*rawImage, int i, pngImage image);
-
 pixel** pngFilter(unsigned char* rawImage, pngImage image){
     if(image->interlaceMethod!=0){
         printf("Interlaced! Cannot process!");
@@ -162,58 +157,127 @@ pixel** pngFilter(unsigned char* rawImage, pngImage image){
     
     // pixel[i][j] stands for i-th row j-th column
     
-    void *type0, *type1, *type2, *type3, *type4;
-    int bpp;
-    
+    void (*type0)(params), (*type1)(params), (*type2)(params), (*type3)(params), (*type4)(params);
+    struct params p = {
+            NULL,
+            rawImage,
+            NULL,
+            0,
+            image->w,
+            0
+    };
+
     switch(image->colorType){
         case 0: // grayScale (1 or 2 bytes)
-            bpp = 1;
-            if(image->bitDepth > 8) bpp++;
+            switch(image->bitDepth){
+                case 1:
+                case 2:
+                case 4:
+                case 8:
+                    p.bpp = 1;
+                    type0 = __noneFilteringGrayscale;
+                    type1 = __subFilteringGrayscale;
+                    type2 = __upFilteringGrayscale;
+                    type3 = __averageFilteringGrayscale;
+                    type4 = __paethFilteringGrayscale;
+                    break;
+                case 16:
+                    p.bpp = 2;
+                    type0 = __noneFilteringGrayscale16bit;
+                    type1 = __subFilteringGrayscale16bit;
+                    type2 = __upFilteringGrayscale16bit;
+                    type3 = __averageFilteringGrayscale16bit;
+                    type4 = __paethFilteringGrayscale16bit;
+            }
             break;
         case 2: // rgb triple
-            bpp = 1;
-            if(image->bitDepth>8) bpp++;
+            if(image->bitDepth == 8){
+                p.bpp = 3;
+                type0 = __noneFilteringColors8bit;
+                type1 = __subFilteringColors8bit;
+                type2 = __upFilteringColors8bit;
+                type3 = __averageFilteringColors8bit;
+                type4 = __paethFilteringColors8bit;
+            }
+            else{ //MSB first
+                p.bpp = 6;
+                type0 = __noneFilteringColors16bit;
+                type1 = __subFilteringColors16bit;
+                type2 = __upFilteringColors16bit;
+                type3 = __averageFilteringColors16bit;
+                type4 = __paethFilteringColors16bit;
+            }
             break;
         case 3: //palette
-            bpp = 1;
+            printf("Not implemented yet");
+            exit(-1);
+            p.bpp = 1;
             break;
         case 4: // grayscale + alpha sample
-            bpp = 2;
-            if(image->bitDepth > 8) bpp++;;
+            if(image->bitDepth == 8){
+                p.bpp = 2;
+                type0 = __noneFilteringGrayscaleAlpha8bit;
+                type1 = __subFilteringGrayscaleAlpha8bit;
+                type2 = __upFilteringGrayscaleAlpha8bit;
+                type3 = __averageFilteringGrayscaleAlpha8bit;
+                type4 = __paethFilteringGrayscaleAlpha8bit;
+            }
+            else{
+                p.bpp = 4;
+                type0 = __noneFilteringGrayscaleAlpha8bit;
+                type1 = __subFilteringGrayscaleAlpha8bit;
+                type2 = __upFilteringGrayscaleAlpha8bit;
+                type3 = __averageFilteringGrayscaleAlpha8bit;
+                type4 = __paethFilteringGrayscaleAlpha8bit;
+            }
             break;
         case 6: // rgb triple + alpha sample
-            bpp = 4;
-            type0 = __noneFilteringColorsAlpha;
-            type1 = __subFilteringColorsAlpha;
-            type2 = __upFilteringColorsAlpha;
-            type3 = __averageFilteringColorsAlpha;
-            type4 = __paethFilteringColorsAlpha;
+            if(image->bitDepth == 8) {
+                p.bpp = 4;
+                type0 = __noneFilteringColorsAlpha8bit;
+                type1 = __subFilteringColorsAlpha8bit;
+                type2 = __upFilteringColorsAlpha8bit;
+                type3 = __averageFilteringColorsAlpha8bit;
+                type4 = __paethFilteringColorsAlpha8bit;
+            }
+            else{
+                p.bpp = 8;
+                type0 = __noneFilteringColorsAlpha16bit;
+                type1 = __subFilteringColorsAlpha16bit;
+                type2 = __upFilteringColorsAlpha16bit;
+                type3 = __averageFilteringColorsAlpha16bit;
+                type4 = __paethFilteringColorsAlpha16bit;
+            }
             break;
     }
-    
-    //printf("line : type\n");
+
     for(int i=0; i<image->h; i++){ // For each scanline (row)
         // The first byte is the type
-        int type = rawImage[i * (image->w*bpp+1) ];
-        printf("index: %d\n", i * ((image->w)*bpp +1));
-        printf("line:%4d --- type:%2d \n", i, type);
-        fflush(stdout);
+        int type = rawImage[i * (image->w*p.bpp+1) ]; //every row has image->w*bpp + 1 bytes
+
+        p.line = res[i];
+        p.i = i;
+        if(i>0) p.upline = res[i-1];
+
+        #ifdef DEBUG
+        printf("line: %4d\n", i);
+        #endif
 
         switch(type){
             case 0:
-                __noneFilteringColorsAlpha(res[i], rawImage, i, image);
+                (*type0)(&p);
                 break;
             case 1:
-                __subFilteringColorsAlpha(res[i], rawImage, i, image);
+                (*type1)(&p);
                 break;
             case 2:
-                __upFilteringColorsAlpha(res[i], i>0?res[i-1]:NULL, rawImage, i, image);
+                (*type2)(&p);
                 break;
             case 3:
-                __averageFilteringColorsAlpha(res[i], i>0?res[i-1]:NULL, rawImage, i, image);
+                (*type3)(&p);
                 break;
             case 4:
-                __paethFilteringColorsAlpha(res[i], i>0?res[i-1]:NULL, rawImage, i, image);
+                (*type4)(&p);
                 break;
         }
         

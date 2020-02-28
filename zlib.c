@@ -10,7 +10,7 @@
 #include <zlib.h>
 
 #define END_OF_BLOCK 0x100
-#define CHUNK 16384
+#define CHUNK 32768
 
 zlib_CMF zlib_getCM(zlib_data data){ //size of the array is always 3
     zlib_CMF res = malloc(sizeof(struct zlib_CMF_st));
@@ -306,12 +306,22 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
     int cycles=0;
     do {
 
-        if(data[cycles]->l<CHUNK) {
+        if(data[cycles]->l < CHUNK) {
             for (int i = 0; i<data[cycles]->l; i++) {
                 in[i] = data[cycles]->data[i];
             }
             strm.avail_in = data[cycles]->l;
             strm.next_in = in;
+            cycles++;
+        }
+        else{
+            int newL = data[cycles]->l - CHUNK;
+            int i;
+            for (i = 0; i<CHUNK; i++) {
+                in[i] = data[cycles]->data[i];
+            }
+            data[cycles]->l = newL;
+            data[cycles]->data = (data[cycles]->data)+i;
         }
 
         do {
@@ -333,7 +343,7 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
 
 
             if(have > 0){
-                int total = res->l + have + 1;
+                long long int total = res->l + have + 1;
                 res->data = realloc(res->data, total * sizeof(byte));
                 for(int i=0; i<have; i++){
                     res->data[res->l+i] = out[i];
