@@ -167,6 +167,24 @@ pixel** pngFilter(unsigned char* rawImage, pngImage image){
             0
     };
 
+    switch(image->colorType) {
+        case 0 ... 5:
+            printf("Not supported.");
+            exit(0);
+        case 6:
+            if(image->bitDepth != 8) {
+                printf("Not supported.");
+                exit(0);
+            }
+            p.bpp = 4;
+            type0 = __noneFilteringColorsAlpha8bit;
+            type1 = __subFilteringColorsAlpha8bit;
+            type2 = __upFilteringColorsAlpha8bit;
+            type3 = __averageFilteringColorsAlpha8bit;
+            type4 = __paethFilteringColorsAlpha8bit;
+    }
+
+    /*
     switch(image->colorType){
         case 0: // grayScale (1 or 2 bytes)
             switch(image->bitDepth){
@@ -249,8 +267,9 @@ pixel** pngFilter(unsigned char* rawImage, pngImage image){
                 type4 = __paethFilteringColorsAlpha16bit;
             }
             break;
-    }
+    }*/
 
+    printf(" colorType:%d - bitDepth:%d\n", image->colorType, image->bitDepth);
     for(int i=0; i<image->h; i++){ // For each scanline (row)
         // The first byte is the type
         int type = rawImage[i * (image->w*p.bpp+1) ]; //every row has image->w*bpp + 1 bytes
@@ -260,7 +279,7 @@ pixel** pngFilter(unsigned char* rawImage, pngImage image){
         if(i>0) p.upline = res[i-1];
 
         #ifdef DEBUG
-        printf("line: %4d\n", i);
+        printf("line: %4d - type:%d\n", i, type);
         #endif
 
         switch(type){
@@ -344,7 +363,6 @@ pngImage pngGetImage(pngFileChunk pc){
     fclose(fp);
     
     zlib_data rawImage = zlib_inflate(compressedImage, idatN, &bytes);
-    printf("-----------------------  %d\n", rawImage->data[1229]);
     free(compressedImage);
     
     /*

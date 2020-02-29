@@ -19,11 +19,10 @@ static unsigned char paethPredictor(unsigned char a, unsigned char b, unsigned c
     else if (pb <= pc) return b;
     else return c;
 }
-static unsigned char average(unsigned char a, unsigned char b){
+static unsigned int average(unsigned char a, unsigned char b){
     double avg = ((double)a + (double)b) / 2.0;
     double favg = floor(avg);
-    printf("Aerage: %lf - %lf - %d\n", avg, favg, (int) favg);
-
+    //printf("Average: %d, %d - %d\n", a, b, (int) favg);
     return (int) favg;
 }
 
@@ -86,7 +85,7 @@ void __subFilteringColors8bit(struct params *p){
         line[j].r = (line[j - 1].r + rawImage[i * lineLen + j * bpp + 1]) % 256;
         line[j].g = (line[j - 1].g + rawImage[i * lineLen + j * bpp + 2]) % 256;
         line[j].b = (line[j - 1].b + rawImage[i * lineLen + j * bpp + 3]) % 256;
-        line[j].a = (line[j - 1].a + rawImage[i * lineLen + j * bpp + 4]) % 265;
+        line[j].a = (line[j - 1].a + rawImage[i * lineLen + j * bpp + 4]) % 256;
 #ifdef DEBUG
         printf("%d\t%d %d %d %d - %d\n", i*lineLen+j, line[j].r, line[j].g, line[j].b, line[j].a, i*lineLen + j*bpp +1 );
         fflush(stdout);
@@ -240,7 +239,7 @@ void __noneFilteringColorsAlpha8bit(struct params *p){ // type = 0
         line[j].g = rawImage[i * imgWidth * bpp+j * bpp+2]; // the first byte is the
         line[j].b = rawImage[i * imgWidth * bpp+j * bpp+3]; // filtering type
         line[j].a = rawImage[i * imgWidth * bpp+j * bpp+4]; // so we add 1 to correct
-        line[j].a = 0;
+        //line[j].a = 0;
         #ifdef DEBUG
         printf("%d\t%3d %3d %3d %3d - %d\n", j, line[j].r, line[j].g, line[j].b, line[j].a, i * imgWidth * bpp+j * bpp);
         fflush(stdout);
@@ -271,7 +270,7 @@ void __subFilteringColorsAlpha8bit(struct params *p){//type = 1
         line[j].r = (line[j - 1].r + rawImage[i * lineLen + j * bpp + 1]) % 256;
         line[j].g = (line[j - 1].g + rawImage[i * lineLen + j * bpp + 2]) % 256;
         line[j].b = (line[j - 1].b + rawImage[i * lineLen + j * bpp + 3]) % 256;
-        line[j].a = (line[j - 1].a + rawImage[i * lineLen + j * bpp + 4]) % 265;
+        line[j].a = (line[j - 1].a + rawImage[i * lineLen + j * bpp + 4]) % 256;
         //line[j].a = 0;
         #ifdef DEBUG
         printf("%d\t%d %d %d %d - %d\n", i*lineLen+j, line[j].r, line[j].g, line[j].b, line[j].a, i*lineLen + j*bpp +1 );
@@ -308,7 +307,7 @@ void __upFilteringColorsAlpha8bit(struct params *p){//type = 2
             line[j].r = (upLine[j].r + rawImage[i*lineLen + j * bpp + 1]) % 256;
             line[j].g = (upLine[j].g + rawImage[i*lineLen + j * bpp + 2]) % 256;
             line[j].b = (upLine[j].b + rawImage[i*lineLen + j * bpp + 3]) % 256;
-            line[j].a = (upLine[j].a + rawImage[i*lineLen + j * bpp + 4]) % 265;
+            line[j].a = (upLine[j].a + rawImage[i*lineLen + j * bpp + 4]) % 256;
             //line[j].a = 0;
 #ifdef DEBUG
             printf("%d\t%d %d %d %d - %d\n", i*lineLen+j, line[j].r, line[j].g, line[j].b, line[j].a, i*lineLen + j*bpp + 1);
@@ -336,23 +335,24 @@ void __averageFilteringColorsAlpha8bit(struct params *p){// type = 3;
 
     if(i == 0 && upLine==NULL) upLine = calloc(imgWidth, sizeof(char));
 
-    line[0].r = rawImage[i*lineLen+1] + upLine[0].r/2;
-    line[0].g = rawImage[i*lineLen+2] + upLine[0].g/2;
-    line[0].b = rawImage[i*lineLen+3] + upLine[0].b/2;
-    line[0].a = rawImage[i*lineLen+4] + upLine[0].a/2;
+    line[0].r = (rawImage[i*lineLen+1] + upLine[0].r/2)%256;
+    line[0].g = (rawImage[i*lineLen+2] + upLine[0].g/2)%256;
+    line[0].b = (rawImage[i*lineLen+3] + upLine[0].b/2)%256;
+    line[0].a = (rawImage[i*lineLen+4] + upLine[0].a/2)%256;
 
-    for(int j=1; j<imgWidth; j++) {
+    for(int j=1; j<imgWidth; j++){
         int index = i*lineLen+j*bpp;
-
         line[j].r = (rawImage[index+1] + average(line[j-1].r, upLine[j].r)) % 256;
-        line[j].g = (rawImage[index+1] + average(line[j-1].g, upLine[j].g)) % 256;
-        line[j].b = (rawImage[index+1] + average(line[j-1].b, upLine[j].b)) % 256;
-        line[j].a = (rawImage[index+1] + average(line[j-1].a, upLine[j].a)) % 256;
+        //printf("AVG: %d - %d --> %d\n", (int) rawImage[index+1], average(line[j-1].r, upLine[j].r), line[j].r);
+        line[j].g = (rawImage[index+2] + average(line[j-1].g, upLine[j].g)) % 256;
+        line[j].b = (rawImage[index+3] + average(line[j-1].b, upLine[j].b)) % 256;
+        line[j].a = (rawImage[index+4] + average(line[j-1].a, upLine[j].a)) % 256;
+        //line[j].a = 0;
         /*
-        line[j].r = (rawImage[index+1] + (int) floor( ( (double)line[j-1].r+(double)upLine[j].r) / 2.0) )  % 256;
+        line[j].r = (rawImage[index+1] + (int) floor( ( (double)line[j-1].r+(double)upLine[j].r) / 2.0) ) % 256;
         line[j].g = (rawImage[index+2] + (int) floor( ( (double)line[j-1].g+(double)upLine[j].g) / 2.0) ) % 256;
         line[j].b = (rawImage[index+3] + (int) floor( ( (double)line[j-1].b+(double)upLine[j].b) / 2.0) ) % 256;
-        line[j].a = (rawImage[index+4] + (int) floor( ( (double)line[j-1].a+(double)upLine[j].a) / 2.0) )% 256;
+        line[j].a = (rawImage[index+4] + (int) floor( ( (double)line[j-1].a+(double)upLine[j].a) / 2.0) ) % 256;
         //line[j].a = 0; */
 #ifdef DEBUG
         printf("%d\t%d %d %d %d\n", j, line[j].r, line[j].g, line[j].b, line[j].a);
@@ -383,6 +383,7 @@ void __paethFilteringColorsAlpha8bit(struct params *p){// type = 4
     line[0].g = (rawImage[i*lineLen +2] + paethPredictor(0, upline[0].g, 0) )%256;
     line[0].b = (rawImage[i*lineLen +3] + paethPredictor(0, upline[0].b, 0) )%256;
     line[0].a = (rawImage[i*lineLen +4] + paethPredictor(0, upline[0].a, 0) )%256;
+    //line[0].a = 0;
 
 #ifdef DEBUG
     printf("Indexes: %d -> %d\n", i*lineLen+1, i*lineLen+4);
@@ -401,6 +402,7 @@ void __paethFilteringColorsAlpha8bit(struct params *p){// type = 4
         fflush(stdout);
         #endif
     }
+    if(i==0) free(upline);
 }
 
 //ColorType=6, BitDepth=16

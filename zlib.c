@@ -305,7 +305,9 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
 
     int cycles=0;
     do {
-
+        strm.next_in = data[cycles]->data;
+        strm.avail_in = data[cycles++]->l;
+/*
         if(data[cycles]->l < CHUNK) {
             for (int i = 0; i<data[cycles]->l; i++) {
                 in[i] = data[cycles]->data[i];
@@ -323,7 +325,7 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
             data[cycles]->l = newL;
             data[cycles]->data = (data[cycles]->data)+i;
         }
-
+*/
         do {
             strm.avail_out = CHUNK;
             strm.next_out = out;
@@ -337,6 +339,9 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
                 case Z_MEM_ERROR:
                     (void)inflateEnd(&strm);
                     return NULL;
+                case Z_BUF_ERROR:
+                    printf("zlib couldn't process!\n");
+                    exit(Z_BUF_ERROR);
             }
 
             have = CHUNK - strm.avail_out;
