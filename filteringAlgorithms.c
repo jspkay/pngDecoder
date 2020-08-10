@@ -51,7 +51,7 @@ void __subFilteringColorsAlpha(pixel *line, const unsigned char*rawImage, int i,
         line[j].r = (line[j - 1].r + rawImage[i * lineLen + j * bpp + 1]) % 256;
         line[j].g = (line[j - 1].g + rawImage[i * lineLen + j * bpp + 2]) % 256;
         line[j].b = (line[j - 1].b + rawImage[i * lineLen + j * bpp + 3]) % 256;
-        line[j].a = (line[j - 1].a + rawImage[i * lineLen + j * bpp + 4]) % 265;
+        line[j].a = (line[j - 1].a + rawImage[i * lineLen + j * bpp + 4]) % 256;
         #ifdef DEBUG
         printf("%d\t%d %d %d %d - %d\n", i*lineLen+j, line[j].r, line[j].g, line[j].b, line[j].a, i*lineLen + j*bpp +1 );
         fflush(stdout);
