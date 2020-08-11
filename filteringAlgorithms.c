@@ -234,11 +234,12 @@ void __noneFilteringColorsAlpha8bit(struct params *p){ // type = 0
     int imgWidth = p->imgWidth;
     int bpp = p->bpp;
 
+    int lineLen = imgWidth*bpp+1;
     for(int j=0; j<imgWidth; j++){
-        line[j].r = rawImage[i * imgWidth * bpp+j * bpp+1]; // offset of one because
-        line[j].g = rawImage[i * imgWidth * bpp+j * bpp+2]; // the first byte is the
-        line[j].b = rawImage[i * imgWidth * bpp+j * bpp+3]; // filtering type
-        line[j].a = rawImage[i * imgWidth * bpp+j * bpp+4]; // so we add 1 to correct
+        line[j].r = rawImage[i * lineLen +j * bpp+1]; // offset of one because
+        line[j].g = rawImage[i * lineLen +j * bpp+2]; // the first byte is the
+        line[j].b = rawImage[i * lineLen +j * bpp+3]; // filtering type
+        line[j].a = rawImage[i * lineLen +j * bpp+4]; // so we add 1 to correct
         //line[j].a = 0;
         #ifdef DEBUG
         printf("%d\t%3d %3d %3d %3d - %d\n", j, line[j].r, line[j].g, line[j].b, line[j].a, i * imgWidth * bpp+j * bpp);

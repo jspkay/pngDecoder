@@ -350,7 +350,6 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
             if(have > 0){
                 long long int total = res->l + have + 1;
                 res->data = realloc(res->data, total * sizeof(byte));
-                printf("REALLOCATED: %d(old) - %d(new)\n", res->l, total);
                 assert(res->data != NULL);
                 for(int i=0; i<have; i++){
                     res->data[res->l+i] = out[i];
