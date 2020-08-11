@@ -21,7 +21,7 @@ typedef int pngID;
 typedef struct pngFile_st *pngFile;
 
 typedef struct pixel_st{
-    unsigned short int r, g, b, a;
+    unsigned short int r, g, b, a; //values between 0 and 255
 } pixel;
 typedef struct pngImage_st{
     unsigned int h, w;

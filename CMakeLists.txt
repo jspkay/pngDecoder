@@ -5,7 +5,7 @@ set(CMAKE_C_STANDARD 11)
 set(ZLIB_SRCS  ${ZLIB_SRCS}  contrib/masmx64/inffas8664.c )
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTK3 REQUIRED gtk+-3.0 zlib)
+pkg_check_modules(GTK3 REQUIRED gtk+-3.0 zlib glib-2.0)
 
 include_directories(${GTK3_INCLUDE_DIRS})
 link_directories(${GTK3_LIBRARY_DIRS})
