@@ -312,7 +312,7 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
             for (int i = 0; i<data[cycles]->l; i++) {
                 in[i] = data[cycles]->data[i];
             }
-            strm.avail_in = data[cycles]->l;
+            strm.avail_in = data[cycles++]->l;
             strm.next_in = in;
             cycles++;
         }
@@ -350,6 +350,8 @@ zlib_data zlib_inflate(zlib_data *data, int n, int *newN){
             if(have > 0){
                 long long int total = res->l + have + 1;
                 res->data = realloc(res->data, total * sizeof(byte));
+                printf("REALLOCATED: %d(old) - %d(new)\n", res->l, total);
+                assert(res->data != NULL);
                 for(int i=0; i<have; i++){
                     res->data[res->l+i] = out[i];
                 }
